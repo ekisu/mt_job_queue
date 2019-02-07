@@ -1,0 +1,9 @@
+[package]
+name = "mt_job_queue"
+version = "0.1.0"
+authors = ["ekisu <ramonzitosdesorte@hotmail.com>"]
+edition = "2018"
+
+[dependencies]
+intervallum = "1.3.0"
+gcollections = "1.4.0"
