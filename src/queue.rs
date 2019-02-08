@@ -131,9 +131,13 @@ where
     }
 
     pub fn position(&self, job_id: usize) -> usize {
+        // Always lock both in this order: ack -> complete
+        let mut _guard_ack = self.acknowledged_jobs.lock().unwrap();
+        let mut _guard_complete = self.complete_jobs.lock().unwrap();
+
         // Really makes me think.
-        estimate_position(&*self.complete_jobs.lock().unwrap(),
-                          &*self.acknowledged_jobs.lock().unwrap(),
+        estimate_position(&*_guard_complete,
+                          &*_guard_ack,
                           job_id)
     }
 
