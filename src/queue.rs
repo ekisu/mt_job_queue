@@ -56,8 +56,11 @@ pub struct Queue<JobArgument> {
     last_job_id: AtomicUsize
 }
 
-fn estimate_position(complete_jobs: &IntervalSet<usize>, job_id: usize) -> usize {
-    complete_jobs.complement().shrink_right(job_id).size()
+fn estimate_position(complete_jobs: &IntervalSet<usize>,
+                     acknowledged_jobs: &BTreeSet<usize>,
+                     job_id: usize) -> usize {
+    // FIXME difference maybe?
+    complete_jobs.complement().shrink_right(job_id).size() - acknowledged_jobs.len()
 }
 
 pub enum JobState {
@@ -129,7 +132,9 @@ where
 
     pub fn position(&self, job_id: usize) -> usize {
         // Really makes me think.
-        estimate_position(&*self.complete_jobs.lock().unwrap(), job_id)
+        estimate_position(&*self.complete_jobs.lock().unwrap(),
+                          &*self.acknowledged_jobs.lock().unwrap(),
+                          job_id)
     }
 
     pub fn job_state(&self, job_id: usize) -> JobState {
@@ -155,30 +160,34 @@ mod tests {
     #[test]
     fn test_no_jobs_completed() {
         let no_jobs : IntervalSet<usize> = IntervalSet::empty();
-        assert_eq!(estimate_position(&no_jobs, 0), 1);
+        let no_ack : BTreeSet<usize> = BTreeSet::new();
+        assert_eq!(estimate_position(&no_jobs, &no_ack, 0), 1);
     }
 
     #[test]
     fn test_few_jobs_completed() {
         // Jobs 0, 1, 2 and 3 have completed.
         let few_jobs_completed : IntervalSet<usize> = vec![(0, 3)].to_interval_set();
-        assert_eq!(estimate_position(&few_jobs_completed, 6), 3);
+        let no_ack : BTreeSet<usize> = BTreeSet::new();
+        assert_eq!(estimate_position(&few_jobs_completed, &no_ack, 6), 3);
     }
 
     #[test]
     fn test_jobs_with_hole() {
         // Jobs 0, 1, and 3 have completed.
         let jobs_with_hole : IntervalSet<usize> = vec![(0, 1), (3, 3)].to_interval_set();
-        assert_eq!(estimate_position(&jobs_with_hole, 6), 4);
+        let no_ack : BTreeSet<usize> = BTreeSet::new();
+        assert_eq!(estimate_position(&jobs_with_hole, &no_ack, 6), 4);
     }
 
     #[test]
     fn test_before_after_completion() {
         // Jobs 0 and 1 have completed.
         let mut jobs : IntervalSet<usize> = vec![(0, 1)].to_interval_set();
-        assert_eq!(estimate_position(&jobs, 6), 5);
+        let no_ack : BTreeSet<usize> = BTreeSet::new();
+        assert_eq!(estimate_position(&jobs, &no_ack, 6), 5);
 
         jobs = jobs.union(&IntervalSet::singleton(3));
-        assert_eq!(estimate_position(&jobs, 6), 4);
+        assert_eq!(estimate_position(&jobs, &no_ack, 6), 4);
     }
 }
