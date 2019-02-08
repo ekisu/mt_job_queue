@@ -23,12 +23,12 @@ impl Worker {
     fn new<JobArgument, JobResult, F>(
         job_rx: Arc<Mutex<Receiver<(usize, JobArgument)>>>,
         progress_tx: Arc<Mutex<Sender<ProgressUpdate<JobResult>>>>,
-        process_job_fn: &'static F
+        process_job_fn: Arc<F>
     ) -> Self
     where
         JobArgument: Send + 'static,
         JobResult: Send + 'static,
-        F: Fn(JobArgument) -> JobResult + Sync + Send {
+        F: Fn(JobArgument) -> JobResult + Sync + Send + 'static {
         let handle = thread::spawn(move || {
             use ProgressUpdate::*;
             loop {
@@ -69,7 +69,7 @@ pub enum JobState {
 impl<JobArgument> Queue<JobArgument>
 where
     JobArgument: Send + 'static {
-    pub fn new<JobResult, F, C>(num_workers: usize, process_job_fn: &'static F, on_job_completed_fn: &'static C) -> Self
+    pub fn new<JobResult, F, C>(num_workers: usize, process_job_fn: Arc<F>, on_job_completed_fn: Arc<C>) -> Self
     where
         JobResult: Send + 'static,
         F: Fn(JobArgument) -> JobResult + Sync + Send + 'static,
@@ -83,7 +83,7 @@ where
         let results_rx = Arc::new(Mutex::new(_results_rx));
 
         let workers : Vec<_> = (0..num_workers).map(|_| {
-            Worker::new(job_rx.clone(), results_tx.clone(), process_job_fn)
+            Worker::new(job_rx.clone(), results_tx.clone(), process_job_fn.clone())
         }).collect();
 
         let acknowledged_jobs = Arc::new(Mutex::new(BTreeSet::new()));
