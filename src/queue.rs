@@ -120,9 +120,11 @@ where
         }
     }
 
-    pub fn enqueue(&self, job_argument: JobArgument) {
+    pub fn enqueue(&self, job_argument: JobArgument) -> usize {
         let _job_tx = self.job_tx.lock().unwrap();
-        _job_tx.send((self.last_job_id.fetch_add(1, Ordering::SeqCst), job_argument)).unwrap();
+        let job_id = self.last_job_id.fetch_add(1, Ordering::SeqCst);
+        _job_tx.send((job_id, job_argument)).unwrap();
+        job_id
     }
 
     pub fn position(&self, job_id: usize) -> usize {
